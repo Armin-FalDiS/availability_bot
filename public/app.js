@@ -9,32 +9,6 @@ function availabilityApp() {
         viewMode: 'individual', // 'individual' or 'overview'
         hours: Array.from({ length: 24 }, (_, i) => i),
         statuses: ['green', 'yellow', 'red'],
-        basePath: '',
-        
-        // Get base path from current URL
-        getBasePath() {
-            if (this.basePath) return this.basePath;
-            let pathname = window.location.pathname;
-            // Remove index.html if present
-            pathname = pathname.replace(/\/index\.html$/, '');
-            // Remove trailing slash
-            pathname = pathname.replace(/\/$/, '');
-            // If we're at root, no base path
-            if (pathname === '' || pathname === '/') {
-                this.basePath = '';
-            } else {
-                // Use the entire path as base path
-                this.basePath = pathname;
-            }
-            console.log('[Frontend] Detected base path:', this.basePath, 'from URL:', window.location.pathname);
-            return this.basePath;
-        },
-        
-        // Helper to make API URLs with base path
-        apiUrl(path) {
-            const base = this.getBasePath();
-            return base + path;
-        },
         
         init() {
             // Initialize Telegram WebApp (if available)
@@ -68,7 +42,7 @@ function availabilityApp() {
                     headers['x-telegram-init-data'] = initData;
                 }
                 
-                const response = await fetch(this.apiUrl('/api/user'), {
+                const response = await fetch('/api/user', {
                     headers: headers
                 });
                 
@@ -88,7 +62,7 @@ function availabilityApp() {
                 const startDate = this.dates[0];
                 const endDate = this.dates[this.dates.length - 1];
                 
-                const response = await fetch(this.apiUrl(`/api/availability?startDate=${startDate}&endDate=${endDate}`));
+                const response = await fetch(`/api/availability?startDate=${startDate}&endDate=${endDate}`);
                 
                 if (!response.ok) {
                     throw new Error('Failed to load availability');
@@ -287,7 +261,7 @@ function availabilityApp() {
                 };
                 console.log('[Frontend] Sending request:', requestBody);
                 
-                const response = await fetch(this.apiUrl('/api/availability'), {
+                const response = await fetch('/api/availability', {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify(requestBody)
