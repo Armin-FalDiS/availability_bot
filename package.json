@@ -1,0 +1,26 @@
+{
+  "name": "telegram-availability-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot with Mini App for team availability scheduling",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "migrate": "node migrate.js"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "availability",
+    "scheduling"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "kysely": "^0.28.8",
+    "pg": "^8.16.3",
+    "telegraf": "^4.15.0"
+  }
+}
