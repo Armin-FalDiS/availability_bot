@@ -62,7 +62,16 @@ function availabilityApp() {
                 const startDate = this.dates[0];
                 const endDate = this.dates[this.dates.length - 1];
                 
-                const response = await fetch(`/api/availability?startDate=${startDate}&endDate=${endDate}`);
+                // Get init data if available (Telegram WebApp), otherwise empty (dev mode)
+                const initData = window.Telegram?.WebApp?.initData || '';
+                const headers = {};
+                if (initData) {
+                    headers['x-telegram-init-data'] = initData;
+                }
+                
+                const response = await fetch(`/api/availability?startDate=${startDate}&endDate=${endDate}`, {
+                    headers: headers
+                });
                 
                 if (!response.ok) {
                     throw new Error('Failed to load availability');

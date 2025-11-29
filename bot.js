@@ -14,8 +14,31 @@ if (!BOT_TOKEN) {
 } else {
   const bot = new Telegraf(BOT_TOKEN);
 
+  // Parse allowed user IDs from environment variable (comma-separated)
+  const ALLOWED_USER_IDS = process.env.ALLOWED_USER_IDS
+    ? process.env.ALLOWED_USER_IDS.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id))
+    : null;
+
+  // Check if user is whitelisted (returns true if whitelist is not enabled)
+  function isUserWhitelisted(userId) {
+    // If no whitelist is configured, allow all users
+    if (!ALLOWED_USER_IDS || ALLOWED_USER_IDS.length === 0) {
+      return true;
+    }
+    // Check if user ID is in the whitelist
+    return ALLOWED_USER_IDS.includes(userId);
+  }
+
   // Start command handler
   bot.command('start', (ctx) => {
+    const userId = ctx.from.id;
+    
+    // Check whitelist - silently ignore if not whitelisted
+    if (!isUserWhitelisted(userId)) {
+      console.error('[Bot] User not whitelisted - /start command:', userId);
+      return; // Don't respond at all
+    }
+
     ctx.reply('Welcome to the Availability Bot!', {
       reply_markup: {
         inline_keyboard: [
@@ -33,6 +56,9 @@ if (!BOT_TOKEN) {
   // Launch bot
   bot.launch().then(() => {
     console.log('Bot is running...');
+    if (ALLOWED_USER_IDS && ALLOWED_USER_IDS.length > 0) {
+      console.log(`🔒 Whitelist enabled: ${ALLOWED_USER_IDS.length} user(s) allowed`);
+    }
   });
 
   // Enable graceful stop

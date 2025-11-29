@@ -14,6 +14,21 @@ app.use(express.static('public'));
 // Development mode: skip Telegram verification if BOT_TOKEN is not set
 const DEV_MODE = !process.env.BOT_TOKEN;
 
+// Parse allowed user IDs from environment variable (comma-separated)
+const ALLOWED_USER_IDS = process.env.ALLOWED_USER_IDS
+  ? process.env.ALLOWED_USER_IDS.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id))
+  : null;
+
+// Check if user is whitelisted (returns true if whitelist is not enabled)
+function isUserWhitelisted(userId) {
+  // If no whitelist is configured, allow all users
+  if (!ALLOWED_USER_IDS || ALLOWED_USER_IDS.length === 0) {
+    return true;
+  }
+  // Check if user ID is in the whitelist
+  return ALLOWED_USER_IDS.includes(userId);
+}
+
 // Verify Telegram WebApp init data
 function verifyTelegramWebAppData(initData) {
   const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -71,7 +86,9 @@ app.get('/api/user', async (req, res) => {
     
     // In development mode, create a mock user if no init data
     if (DEV_MODE && !initData) {
-      const mockUser = await db.getOrCreateUser(999999, 'Test User');
+      const mockUserId = 999999;
+      // Skip whitelist check in dev mode for mock user
+      const mockUser = await db.getOrCreateUser(mockUserId, 'Test User');
       return res.json(mockUser);
     }
     
@@ -88,6 +105,12 @@ app.get('/api/user', async (req, res) => {
       return res.status(400).json({ error: 'Invalid user data' });
     }
 
+    // Check whitelist - silently deny if not whitelisted
+    if (!isUserWhitelisted(userData.id)) {
+      console.error('[Backend] User not whitelisted - GET /api/user:', userData.id);
+      return res.status(404).end();
+    }
+
     const user = await db.getOrCreateUser(userData.id, userData.first_name || userData.username || 'User');
     res.json(user);
   } catch (error) {
@@ -102,6 +125,33 @@ app.get('/api/availability', async (req, res) => {
     const { startDate, endDate } = req.query;
     if (!startDate || !endDate) {
       return res.status(400).json({ error: 'startDate and endDate query parameters are required' });
+    }
+
+    const initData = req.headers['x-telegram-init-data'];
+    let userData;
+    
+    // In development mode, use mock user if no init data
+    if (DEV_MODE && !initData) {
+      userData = { id: 999999, first_name: 'Test User' };
+    } else {
+      if (!initData) {
+        return res.status(404).end();
+      }
+
+      if (!verifyTelegramWebAppData(initData)) {
+        return res.status(404).end();
+      }
+
+      userData = parseInitData(initData);
+      if (!userData) {
+        return res.status(404).end();
+      }
+      
+      // Check whitelist - silently deny if not whitelisted
+      if (!isUserWhitelisted(userData.id)) {
+        console.error('[Backend] User not whitelisted - GET /api/availability:', userData.id);
+        return res.status(404).end();
+      }
     }
 
     const availability = await db.getAvailability(startDate, endDate);
@@ -125,6 +175,7 @@ app.post('/api/availability', async (req, res) => {
     if (DEV_MODE && !initData) {
       userData = { id: 999999, first_name: 'Test User' };
       console.log('[Backend] Using dev mode mock user:', userData);
+      // Skip whitelist check for dev mode mock user
     } else {
       if (!initData) {
         console.error('[Backend] Missing Telegram init data');
@@ -142,6 +193,12 @@ app.post('/api/availability', async (req, res) => {
         return res.status(400).json({ error: 'Invalid user data' });
       }
       console.log('[Backend] Parsed user data:', userData);
+      
+      // Check whitelist (skip for dev mode mock user) - silently deny if not whitelisted
+      if (!isUserWhitelisted(userData.id)) {
+        console.error('[Backend] User not whitelisted:', userData.id);
+        return res.status(404).end();
+      }
     }
 
     const { date, hour, status } = req.body;
@@ -196,6 +253,9 @@ app.listen(PORT, () => {
   if (DEV_MODE) {
     console.log('⚠️  Development mode: Telegram verification disabled (BOT_TOKEN not set)');
     console.log('   You can test the web interface at http://localhost:' + PORT);
+  }
+  if (ALLOWED_USER_IDS && ALLOWED_USER_IDS.length > 0) {
+    console.log(`🔒 Whitelist enabled: ${ALLOWED_USER_IDS.length} user(s) allowed`);
   }
 });
 
