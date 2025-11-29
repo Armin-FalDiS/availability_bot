@@ -128,7 +128,7 @@
                     </div>
                     
                     <!-- Rows for each user -->
-                    <template x-for="user in getAllUsers()" :key="user.user_id">
+                    <template x-for="user in getUsersWithAvailabilityForDate(dates[selectedDateIndex])" :key="user.user_id">
                         <div class="overview-user-row">
                             <div class="overview-user-name" x-text="user.display_name || 'User'"></div>
                             <template x-for="hour in hours" :key="hour">

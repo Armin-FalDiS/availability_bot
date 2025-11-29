@@ -185,6 +185,43 @@ function availabilityApp() {
             );
         },
         
+        getUsersWithAvailabilityForDate(date) {
+            // Normalize date for comparison
+            const normalizeDate = (d) => {
+                if (!d) return '';
+                if (typeof d === 'string' && d.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    return d;
+                }
+                try {
+                    const dateObj = new Date(d);
+                    return dateObj.toISOString().split('T')[0];
+                } catch (e) {
+                    return String(d).split('T')[0];
+                }
+            };
+            
+            const normalizedDate = normalizeDate(date);
+            
+            // Get unique users who have availability for this specific date
+            const userMap = new Map();
+            this.availability.forEach(a => {
+                const aDateNormalized = normalizeDate(a.date);
+                if (aDateNormalized === normalizedDate) {
+                    if (!userMap.has(a.user_id)) {
+                        userMap.set(a.user_id, {
+                            user_id: a.user_id,
+                            display_name: a.display_name || 'User'
+                        });
+                    }
+                }
+            });
+            
+            // Only return users who have at least one availability record for this date
+            return Array.from(userMap.values()).sort((a, b) => 
+                (a.display_name || '').localeCompare(b.display_name || '')
+            );
+        },
+        
         getUserStatus(userId, date, hour) {
             // Normalize date for comparison
             const normalizeDate = (d) => {
