@@ -14,5 +14,5 @@ COPY . .
 # Expose port
 EXPOSE 3000
 
-# Run migrations then start the app
-CMD node migrate.js && node index.js
+# Start the app (migrations run automatically)
+CMD ["npm", "start"]

@@ -1,12 +1,23 @@
-// Start both bot and server
-function start() {
-  // Only start bot if it's available (BOT_TOKEN provided)
-  const bot = require('./bot.js');
-  if (bot) {
-    console.log('Telegram bot initialized');
+const { runMigrations } = require('./migrate');
+
+// Start both bot and server after migrations
+async function start() {
+  try {
+    console.log('Running database migrations...');
+    await runMigrations();
+    console.log('Migrations completed, starting application...');
+    
+    // Only start bot if it's available (BOT_TOKEN provided)
+    const bot = require('./bot.js');
+    if (bot) {
+      console.log('Telegram bot initialized');
+    }
+    
+    require('./server.js');
+  } catch (error) {
+    console.error('Failed to start application:', error);
+    process.exit(1);
   }
-  
-  require('./server.js');
 }
 
 start();
