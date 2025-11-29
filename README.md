@@ -9,8 +9,7 @@ A Telegram bot with Mini App interface for team availability scheduling. Users c
 - **Color Coding**: 
   - 🟢 Green: Available
   - 🟡 Yellow: Maybe
-  - 🔴 Red: Unavailable
-  - ⚪ Gray: Not set
+  - 🔴 Red: Unavailable (default)
 - **Team View**: See all team members' availability in one calendar
 - **Telegram Mini App**: Native Telegram integration with secure authentication
 
@@ -31,13 +30,13 @@ npm install
 
 ### 2. Database Setup
 
-Create a PostgreSQL database. Migrations will run automatically on startup, or you can run them manually:
+Create a PostgreSQL database. Migrations will run automatically on startup when you run `npm start`, or you can run them manually:
 
 ```bash
-# Automatic (runs on npm start)
+# Automatic (runs migrations then starts bot + server)
 npm start
 
-# Or manually
+# Or run migrations only
 npm run migrate
 ```
 
@@ -56,6 +55,9 @@ BOT_TOKEN=your_telegram_bot_token_here
 DATABASE_URL=postgresql://user:password@localhost:5432/availability_db
 PORT=3000
 WEB_APP_URL=https://your-domain.com
+# Optional: Comma-separated list of allowed Telegram user IDs (e.g., "123456789,987654321")
+# If not set, all users will have access
+ALLOWED_USER_IDS=
 ```
 
 ### 4. Configure Telegram Bot
@@ -73,12 +75,21 @@ WEB_APP_URL=https://your-domain.com
 
 **Development:**
 ```bash
-# Terminal 1: Start the bot
-node bot.js
-
-# Terminal 2: Start the server
-node server.js
+# This runs migrations, then starts both bot and server
+npm start
 ```
+
+The application uses `index.js` as the entry point, which:
+1. Runs database migrations automatically
+2. Starts the Telegram bot (if `BOT_TOKEN` is provided)
+3. Starts the Express server
+
+**Development Mode:**
+- If `BOT_TOKEN` is not set, the app runs in development mode
+- In dev mode, Telegram verification is disabled
+- A mock user (ID: 999999) is used for testing
+- You can test the web interface at `http://localhost:PORT` without Telegram
+- The bot will not start if `BOT_TOKEN` is missing (this is expected)
 
 **Production with Docker:**
 ```bash
@@ -91,14 +102,14 @@ docker run -d --env-file .env -p 3000:3000 availability-bot
 1. Start a chat with your bot on Telegram
 2. Send `/start` command
 3. Click "Open Availability Calendar" button
-4. Click on any hour slot to cycle through colors:
-   - Gray → Green → Yellow → Red → Gray
-5. All team members can see each other's availability
+4. For each hour, click the status button (Green/Yellow/Red) to set your availability
+5. All team members can see each other's availability in the "Team Overview" view
 
 ## Project Structure
 
 ```
 .
+├── index.js            # Main entry point (runs migrations, starts bot + server)
 ├── bot.js              # Telegram bot setup
 ├── server.js           # Express server and API
 ├── db.js               # Database functions (using Kysely)
@@ -106,7 +117,11 @@ docker run -d --env-file .env -p 3000:3000 availability-bot
 ├── migrations/         # JavaScript migration files
 │   └── 20241129_001_initial_schema.js
 ├── public/
-│   └── index.html      # Mini App frontend
+│   ├── index.html      # Mini App frontend HTML
+│   ├── app.js          # Frontend JavaScript (Alpine.js)
+│   └── styles.css      # Frontend styles
+├── schema.sql          # SQL schema (reference, migrations are preferred)
+├── env.example         # Example environment variables
 ├── Dockerfile          # Docker configuration
 ├── package.json        # Dependencies
 └── README.md           # This file
@@ -114,9 +129,11 @@ docker run -d --env-file .env -p 3000:3000 availability-bot
 
 ## API Endpoints
 
-- `GET /api/user` - Get current user info (requires Telegram init data)
-- `GET /api/availability?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` - Get availability for date range
-- `POST /api/availability` - Save availability slot (requires Telegram init data)
+- `GET /api/user` - Get current user info (requires Telegram init data header)
+- `GET /api/availability?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` - Get availability for date range (requires Telegram init data header)
+- `POST /api/availability` - Save availability slot (requires Telegram init data header)
+
+All API endpoints require the `x-telegram-init-data` header for authentication. The frontend automatically includes this header when running in Telegram WebApp.
 
 ## Database Schema
 
@@ -132,7 +149,10 @@ docker run -d --env-file .env -p 3000:3000 availability-bot
 
 ## Security
 
-The application verifies Telegram WebApp init data using HMAC-SHA256 to ensure requests are coming from legitimate Telegram clients.
+- **Telegram Authentication**: The application verifies Telegram WebApp init data using HMAC-SHA256 to ensure requests are coming from legitimate Telegram clients.
+- **Optional Whitelist**: You can restrict access to specific users by setting the `ALLOWED_USER_IDS` environment variable with a comma-separated list of Telegram user IDs. If not set, all authenticated users have access.
+  - To find a user's Telegram ID, they can message [@userinfobot](https://t.me/userinfobot) on Telegram
+  - Non-whitelisted users receive no response (silent failure) but access attempts are logged on the server
 
 ## License
 
