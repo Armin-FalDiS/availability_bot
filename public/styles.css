@@ -248,13 +248,15 @@ body {
 .overview-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    position: relative;
 }
 
 .overview-table {
     display: grid;
     grid-template-columns: 120px repeat(24, 1fr);
     gap: 2px;
-    width: 100%;
+    min-width: max-content;
+    position: relative;
 }
 
 .overview-header-row {
@@ -276,6 +278,13 @@ body {
 .overview-user-header {
     left: 0;
     z-index: 3;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+    min-width: 120px;
+    width: 120px;
+    border-right: 2px solid var(--sl-color-neutral-300);
+    margin-left: 0;
+    transform: translateZ(0);
+    will-change: transform;
 }
 
 .overview-user-row {
@@ -289,8 +298,14 @@ body {
     font-size: 0.875rem;
     position: sticky;
     left: 0;
-    z-index: 1;
-    border-right: 1px solid var(--sl-color-neutral-300);
+    z-index: 2;
+    border-right: 2px solid var(--sl-color-neutral-300);
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+    min-width: 120px;
+    width: 120px;
+    margin-left: 0;
+    transform: translateZ(0);
+    will-change: transform;
 }
 
 .overview-cell {
