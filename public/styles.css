@@ -325,3 +325,42 @@ body {
 .overview-cell.red {
     background: var(--sl-color-danger-500);
 }
+
+.next-day-button-container {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.next-day-button {
+    padding: 0.875rem 1.5rem;
+    background: var(--sl-color-primary-500);
+    color: white;
+    border: none;
+    border-radius: var(--sl-border-radius-medium);
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 150px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.next-day-button:hover:not(:disabled) {
+    background: var(--sl-color-primary-600);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.next-day-button:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.next-day-button:disabled {
+    background: var(--sl-color-neutral-300);
+    color: var(--sl-color-neutral-500);
+    cursor: not-allowed;
+    box-shadow: none;
+}

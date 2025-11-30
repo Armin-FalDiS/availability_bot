@@ -114,6 +114,16 @@
                         </div>
                     </template>
                 </div>
+                
+                <!-- Next Day Button -->
+                <div class="next-day-button-container">
+                    <button 
+                        class="next-day-button"
+                        @click="goToNextDay()"
+                        :disabled="!canGoToNextDay"
+                        x-text="canGoToNextDay ? 'Next Day →' : 'Last Day'"
+                    ></button>
+                </div>
             </div>
             
             <!-- Overview view: Table showing all users -->

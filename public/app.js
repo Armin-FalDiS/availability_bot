@@ -389,6 +389,18 @@ function availabilityApp() {
             const start = this.formatDate(this.dates[0]);
             const end = this.formatDate(this.dates[this.dates.length - 1]);
             return `${start} - ${end}`;
+        },
+        
+        goToNextDay() {
+            if (this.selectedDateIndex < this.dates.length - 1) {
+                this.selectedDateIndex++;
+                // Scroll to top smoothly
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        },
+        
+        get canGoToNextDay() {
+            return this.selectedDateIndex < this.dates.length - 1;
         }
     };
 }
