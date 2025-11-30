@@ -115,6 +115,7 @@
                                     <div 
                                         class="status-button"
                                         :class="[status, { active: getSlotStatus(dates[selectedDateIndex], hour) === status }]"
+                                        x-show="getSlotStatus(dates[selectedDateIndex], hour) !== status"
                                         @click.stop="setSlotStatus(dates[selectedDateIndex], hour, status)"
                                         @touchstart.stop="setSlotStatus(dates[selectedDateIndex], hour, status)"
                                         :title="status.charAt(0).toUpperCase() + status.slice(1)"
