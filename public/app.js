@@ -9,6 +9,7 @@ function availabilityApp() {
         viewMode: 'individual', // 'individual' or 'overview'
         hours: Array.from({ length: 24 }, (_, i) => i),
         statuses: ['green', 'yellow', 'red'],
+        copyingYesterday: false,
         
         init() {
             // Initialize Telegram WebApp (if available)
@@ -401,6 +402,158 @@ function availabilityApp() {
         
         get canGoToNextDay() {
             return this.selectedDateIndex < this.dates.length - 1;
+        },
+        
+        async batchSaveSlots(slots) {
+            // Helper function to batch save multiple slots
+            if (!this.currentUser) {
+                throw new Error('User not loaded');
+            }
+            
+            const initData = window.Telegram?.WebApp?.initData || '';
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (initData) {
+                headers['x-telegram-init-data'] = initData;
+            }
+            
+            const requestBody = {
+                slots: slots
+            };
+            
+            const response = await fetch('/api/availability/batch', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(requestBody)
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to batch save availability: ${errorText}`);
+            }
+            
+            return await response.json();
+        },
+        
+        async copyYesterdayToToday() {
+            if (!this.currentUser) {
+                this.error = 'User not loaded';
+                return;
+            }
+            
+            if (this.copyingYesterday) {
+                return; // Already copying
+            }
+            
+            this.copyingYesterday = true;
+            this.error = null;
+            
+            try {
+                // Use the selected date from the tabs
+                const selectedDateStr = this.dates[this.selectedDateIndex];
+                const selectedDate = new Date(selectedDateStr);
+                
+                // Calculate yesterday relative to the selected date
+                const yesterday = new Date(selectedDate);
+                yesterday.setDate(selectedDate.getDate() - 1);
+                
+                const yesterdayDateStr = yesterday.toISOString().split('T')[0];
+                const targetDateStr = selectedDateStr;
+                
+                console.log('[Frontend] Selected date:', targetDateStr);
+                console.log('[Frontend] Yesterday (relative to selected):', yesterdayDateStr);
+                console.log('[Frontend] Copying from yesterday:', yesterdayDateStr, 'to selected date:', targetDateStr);
+                
+                // Fetch yesterday's availability
+                const initData = window.Telegram?.WebApp?.initData || '';
+                const headers = {};
+                if (initData) {
+                    headers['x-telegram-init-data'] = initData;
+                }
+                
+                const response = await fetch(`/api/availability?startDate=${yesterdayDateStr}&endDate=${yesterdayDateStr}`, {
+                    headers: headers
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[Frontend] Failed to fetch yesterday:', errorText);
+                    throw new Error(`Failed to load yesterday's availability: ${response.status} ${response.statusText}`);
+                }
+                
+                const yesterdayAvailability = await response.json();
+                console.log('[Frontend] Loaded yesterday availability:', yesterdayAvailability);
+                
+                // Filter to only current user's availability
+                const userYesterdaySlots = yesterdayAvailability.filter(
+                    a => String(a.user_id) === String(this.currentUser.user_id)
+                );
+                
+                console.log('[Frontend] Found', userYesterdaySlots.length, 'slots from yesterday for user', this.currentUser.user_id);
+                
+                if (userYesterdaySlots.length === 0) {
+                    console.log('[Frontend] No slots to copy from yesterday');
+                    // Don't show error, just inform via console - user might not have set anything yesterday
+                    alert('No availability found for yesterday to copy.');
+                    return;
+                }
+                
+                // Batch save all slots in a single request
+                const slotsToCopy = userYesterdaySlots.filter(slot => slot.status !== 'red');
+                console.log('[Frontend] Copying', slotsToCopy.length, 'non-red slots to selected date');
+                
+                if (slotsToCopy.length === 0) {
+                    console.log('[Frontend] No slots to copy (all were red/default)');
+                    alert('No availability to copy (yesterday had no set availability).');
+                    return;
+                }
+                
+                // Prepare slots for batch save
+                const slotsToSave = slotsToCopy.map(slot => ({
+                    date: targetDateStr,
+                    hour: slot.hour,
+                    status: slot.status
+                }));
+                
+                // Batch save all slots in one request
+                const savedSlots = await this.batchSaveSlots(slotsToSave);
+                
+                console.log('[Frontend] Successfully copied', savedSlots.length, 'out of', slotsToCopy.length, 'slots');
+                
+                // Update local state with saved slots
+                for (const saved of savedSlots) {
+                    if (saved && !saved.deleted) {
+                        saved.display_name = this.currentUser.display_name;
+                        const index = this.availability.findIndex(
+                            a => String(a.user_id) === String(saved.user_id) && 
+                                 a.date === saved.date && 
+                                 a.hour === saved.hour
+                        );
+                        if (index >= 0) {
+                            Object.assign(this.availability[index], saved);
+                        } else {
+                            this.availability.push(saved);
+                        }
+                    }
+                }
+                
+                // Single reload at the end to sync everything
+                await this.loadAvailability();
+                
+                console.log('[Frontend] Copy completed successfully');
+                
+                // Show success feedback
+                if (savedSlots.length > 0) {
+                    // Optionally show a brief success message
+                    console.log(`Successfully copied ${savedSlots.length} time slot(s) from yesterday to selected date.`);
+                }
+            } catch (error) {
+                console.error('[Frontend] Error copying yesterday to today:', error);
+                this.error = error.message || 'Failed to copy yesterday\'s availability';
+            } finally {
+                this.copyingYesterday = false;
+            }
         }
     };
 }

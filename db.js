@@ -136,9 +136,82 @@ async function saveAvailability(userId, date, hour, status) {
   return result;
 }
 
+/**
+ * Batch save multiple availability slots
+ * @param {number} userId - Telegram user ID
+ * @param {Array<{date: string, hour: number, status: string}>} slots - Array of slots to save
+ * @returns {Promise<Array>} Array of saved availability records
+ */
+async function batchSaveAvailability(userId, slots) {
+  console.log('[DB] batchSaveAvailability called:', { userId, slotCount: slots.length });
+  
+  if (!slots || slots.length === 0) {
+    return [];
+  }
+  
+  const now = new Date();
+  const slotsToInsert = [];
+  const slotsToDelete = [];
+  
+  // Separate slots into inserts/updates vs deletes
+  for (const slot of slots) {
+    if (slot.status === 'red') {
+      slotsToDelete.push({ date: slot.date, hour: slot.hour });
+    } else {
+      slotsToInsert.push({
+        user_id: userId,
+        date: slot.date,
+        hour: slot.hour,
+        status: slot.status,
+        updated_at: now,
+      });
+    }
+  }
+  
+  // Delete red status slots
+  if (slotsToDelete.length > 0) {
+    console.log('[DB] Deleting', slotsToDelete.length, 'red status slots');
+    for (const slot of slotsToDelete) {
+      await db
+        .deleteFrom('availability')
+        .where('user_id', '=', userId)
+        .where('date', '=', slot.date)
+        .where('hour', '=', slot.hour)
+        .execute();
+    }
+  }
+  
+  // Batch insert/update green/yellow slots
+  if (slotsToInsert.length > 0) {
+    console.log('[DB] Upserting', slotsToInsert.length, 'slots');
+    // Use a transaction or batch insert with conflict handling
+    const results = [];
+    for (const slot of slotsToInsert) {
+      const result = await db
+        .insertInto('availability')
+        .values(slot)
+        .onConflict((oc) => oc
+          .columns(['user_id', 'date', 'hour'])
+          .doUpdateSet({
+            status: slot.status,
+            updated_at: now,
+          })
+        )
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      results.push(result);
+    }
+    console.log('[DB] Batch upsert completed, saved', results.length, 'slots');
+    return results;
+  }
+  
+  return [];
+}
+
 module.exports = {
   db,
   getOrCreateUser,
   getAvailability,
   saveAvailability,
+  batchSaveAvailability,
 };

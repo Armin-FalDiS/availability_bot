@@ -162,6 +162,77 @@ app.get('/api/availability', async (req, res) => {
   }
 });
 
+// API: Batch save availability slots
+app.post('/api/availability/batch', async (req, res) => {
+  try {
+    console.log('[Backend] POST /api/availability/batch - Request body:', req.body);
+    
+    const initData = req.headers['x-telegram-init-data'];
+    let userData;
+    
+    // In development mode, use mock user if no init data
+    if (DEV_MODE && !initData) {
+      userData = { id: 999999, first_name: 'Test User' };
+      console.log('[Backend] Using dev mode mock user:', userData);
+    } else {
+      if (!initData) {
+        console.error('[Backend] Missing Telegram init data');
+        return res.status(401).json({ error: 'Missing Telegram init data' });
+      }
+
+      if (!verifyTelegramWebAppData(initData)) {
+        console.error('[Backend] Invalid Telegram init data');
+        return res.status(401).json({ error: 'Invalid Telegram init data' });
+      }
+
+      userData = parseInitData(initData);
+      if (!userData) {
+        console.error('[Backend] Invalid user data');
+        return res.status(400).json({ error: 'Invalid user data' });
+      }
+      console.log('[Backend] Parsed user data:', userData);
+      
+      // Check whitelist
+      if (!isUserWhitelisted(userData.id)) {
+        console.error('[Backend] User not whitelisted:', userData.id);
+        return res.status(404).end();
+      }
+    }
+
+    const { slots } = req.body;
+    
+    if (!Array.isArray(slots) || slots.length === 0) {
+      return res.status(400).json({ error: 'slots array is required and must not be empty' });
+    }
+
+    // Validate each slot
+    for (const slot of slots) {
+      if (!slot.date || slot.hour === undefined || !slot.status) {
+        return res.status(400).json({ error: 'Each slot must have date, hour, and status' });
+      }
+      if (!['green', 'yellow', 'red'].includes(slot.status)) {
+        return res.status(400).json({ error: 'Invalid status. Must be green, yellow, or red' });
+      }
+      if (slot.hour < 0 || slot.hour > 23) {
+        return res.status(400).json({ error: 'Hour must be between 0 and 23' });
+      }
+    }
+
+    // Ensure user exists
+    console.log('[Backend] Getting/creating user:', userData.id);
+    await db.getOrCreateUser(userData.id, userData.first_name || userData.username || 'User');
+
+    console.log('[Backend] Batch saving availability:', { userId: userData.id, slotCount: slots.length });
+    const savedSlots = await db.batchSaveAvailability(userData.id, slots);
+    console.log('[Backend] Batch save result:', savedSlots.length, 'slots saved');
+    
+    res.json(savedSlots);
+  } catch (error) {
+    console.error('Error batch saving availability:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // API: Save availability slot
 app.post('/api/availability', async (req, res) => {
   try {

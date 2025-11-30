@@ -80,6 +80,16 @@
                 </div>
             </div>
             
+            <!-- Copy Yesterday Button (only in individual view) -->
+            <div x-show="viewMode === 'individual'" class="copy-yesterday-button-container">
+                <button 
+                    class="copy-yesterday-button"
+                    @click="copyYesterdayToToday()"
+                    :disabled="copyingYesterday"
+                    x-text="copyingYesterday ? 'Copying...' : 'Copy Yesterday'"
+                ></button>
+            </div>
+            
             <!-- Individual view: Calendar grid for selected day -->
             <div x-show="viewMode === 'individual'" class="calendar-container">
                 <div class="calendar-grid">
